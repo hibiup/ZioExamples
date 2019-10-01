@@ -90,5 +90,13 @@ class Example_1_Effect extends FlatSpec with StrictLogging{
          * */
         import zio.blocking._
         val sleeping: ZIO[Blocking, Throwable, Unit] = effectBlocking(Thread.sleep(Long.MaxValue))
+
+        // 或允许 cancel 的 blocking effect
+        def cancelableSleeping(obj:Object): ZIO[Blocking, Throwable, Unit] = {
+            /**
+             * Cancelable blocking 接受两个函数参数，第二个函数是 cancel 的方法。
+             */
+            effectBlockingCancelable{obj.wait()}{UIO.effectTotal(obj.notify())}
+        }
     }
 }
