@@ -43,7 +43,7 @@ class Example_1_Effect extends FlatSpec with StrictLogging{
          * 对于 fromFuture. ZIO 提供缺省 ec。
          */
         import scala.concurrent.Future
-        lazy val future = Future.successful("Hello!")  // 注意用 lazy suspend side effect
+        lazy val future = Future.successful("Hello!")    // 注意用 lazy suspend side effect
         val zFuture: Task[Boolean] = ZIO.fromFuture { implicit ec =>
             future.map(_ => true)
         }
@@ -78,12 +78,17 @@ class Example_1_Effect extends FlatSpec with StrictLogging{
             def login(onSuccess: User => Unit, onFailure: AuthError => Unit): Unit = ???
         }
 
-        val login: IO[AuthError, User] =
-            IO.effectAsync[AuthError, User] { callback =>
-                legacy.login(
-                    user => callback(IO.succeed(user)),
-                    err  => callback(IO.fail(err))
-                )
-            }
+        val login: IO[AuthError, User] = IO.effectAsync[AuthError, User] { callback =>
+            legacy.login(
+                user => callback(IO.succeed(user)),
+                err  => callback(IO.fail(err))
+            )
+        }
+
+        /**
+         * Blocking effect
+         */
+        import zio.blocking._
+        val sleeping = effectBlocking(Thread.sleep(Long.MaxValue))
     }
 }
