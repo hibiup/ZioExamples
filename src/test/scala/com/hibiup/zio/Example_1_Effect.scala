@@ -2,7 +2,7 @@ package com.hibiup.zio
 
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.FlatSpec
-import zio.{Exit, Task, UIO, ZIO}
+import zio.{Exit, IO, Task, UIO, ZIO}
 
 class Example_1_Effect extends FlatSpec with StrictLogging{
     "Basic effective functions" should "" in {
@@ -68,5 +68,22 @@ class Example_1_Effect extends FlatSpec with StrictLogging{
          * fromXXX 系列函数甚至可以作用于函数
          */
         val zFunc = ZIO.fromFunction((i: Int) => i * i)
+
+        /**
+         * Async
+         */
+        type User = String
+        type AuthError = Throwable
+        object legacy {
+            def login(onSuccess: User => Unit, onFailure: AuthError => Unit): Unit = ???
+        }
+
+        val login: IO[AuthError, User] =
+            IO.effectAsync[AuthError, User] { callback =>
+                legacy.login(
+                    user => callback(IO.succeed(user)),
+                    err  => callback(IO.fail(err))
+                )
+            }
     }
 }

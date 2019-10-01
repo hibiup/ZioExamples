@@ -2,7 +2,7 @@ package com.hibiup.zio
 
 import java.io.IOException
 
-import zio.{App, ZIO}
+import zio.{App, IO, ZIO}
 import zio.console._
 
 /**
