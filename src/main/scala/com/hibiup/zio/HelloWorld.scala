@@ -14,12 +14,21 @@ object HelloWorld extends App{
      *
      * ZIO 容器类型被称为 zio 的 unexceptional（正常）值。
      *
-     * ZIO 的参数第一个代表执行容器，第二个表示异常类型，第三个是正常返回值类型。
+     * ZIO 的参数第一个代表执行容器，第二个表示异常类型（不是必须为 Throwable），第三个是正常返回值类型。根据 ZIO 的三个参数的不同
+     * 情况，ZIO 定义了几种别名：
+     *
+     *   UIO[A]     -  ZIO[Any, Nothing, A]
+     *   URIO[R, A] -  ZIO[R, Nothing, A]
+     *   Task[A]    - ZIO[Any, Throwable, A]
+     *   RIO[R, A]  - ZIO[R, Throwable, A]
+     *   IO[E, A]   - ZIO[Any, E, A]
+     *
+     * 这些别名各自存在伴随对象，包含一些特定的函数。
      *
      * 执行一个 ZIO 容器的方法是调用 fold 函数，函数存在两个参数，第一个处理异常句柄，第二个处理返回值。
      *
      * run 函数作为入口函数，它要求返回 Int 类型返回值（对应 ExitCode）, 不允许存在异常。
-     *
+     *Example_1_Effect
      * 这个例子的 run 在调用 myAppLogic 后得到一个 ZIO 返回值传递给 fold，无论什么异常，最终都返回 1，否则返回 0。
      */
     def run(args: List[String]): ZIO[Console, Nothing, Int] = myAppLogic.fold(_ => 1, _ => 0)
