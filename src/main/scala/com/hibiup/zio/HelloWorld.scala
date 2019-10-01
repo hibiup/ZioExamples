@@ -1,0 +1,37 @@
+package com.hibiup.zio
+
+import java.io.IOException
+
+import zio.{App, ZIO}
+import zio.console._
+
+/**
+ * 程序从 zio.App 中继承出
+ */
+object HelloWorld extends App{
+    /**
+     * run 方法是 zio App 的入口方法。
+     *
+     * ZIO 容器类型被称为 zio 的 unexceptional（正常）值。
+     *
+     * ZIO 的参数第一个代表执行容器，第二个表示异常类型，第三个是正常返回值类型。
+     *
+     * 执行一个 ZIO 容器的方法是调用 fold 函数，函数存在两个参数，第一个处理异常句柄，第二个处理返回值。
+     *
+     * run 函数作为入口函数，它要求返回 Int 类型返回值（对应 ExitCode）, 不允许存在异常。
+     *
+     * 这个例子的 run 在调用 myAppLogic 后得到一个 ZIO 返回值传递给 fold，无论什么异常，最终都返回 1，否则返回 0。
+     */
+    def run(args: List[String]): ZIO[Console, Nothing, Int] = myAppLogic.fold(_ => 1, _ => 0)
+
+    /**
+     * putStrLn/putStr 是 console 提供给的标准打印函数。getStrLn 是标准输入设备的读取函数。
+     *
+     * 同时它们也是 Monad，也就意味着可以串联： `getStrLn flatMap putStrLn` 能够将标准输入直接打印到标准输出。
+     */
+    val myAppLogic: ZIO[Console, IOException, Unit] = for {
+        _    <- putStrLn("Hello! What is your name?")
+        name <- getStrLn
+        _    <- putStrLn(s"Hello, ${name}, welcome to ZIO!")
+    } yield ()
+}
