@@ -86,9 +86,9 @@ class Example_1_Effect extends FlatSpec with StrictLogging{
         }
 
         /**
-         * Blocking effect
-         */
+         * Blocking effect. 可以被转换成 ZIO
+         * */
         import zio.blocking._
-        val sleeping = effectBlocking(Thread.sleep(Long.MaxValue))
+        val sleeping: ZIO[Blocking, Throwable, Unit] = effectBlocking(Thread.sleep(Long.MaxValue))
     }
 }
