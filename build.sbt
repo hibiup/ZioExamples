@@ -2,7 +2,8 @@
 // DEPENDENCIES
 lazy val testing = Seq(
     "org.scalatest" %% "scalatest" % "3.0.8",
-    "com.storm-enroute" %% "scalameter" % "0.19"
+    "com.storm-enroute" %% "scalameter" % "0.19",
+    "dev.zio" %% "zio-test" % "1.0.0-RC13"
 )
 
 lazy val logging ={

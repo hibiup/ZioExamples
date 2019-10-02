@@ -2,16 +2,29 @@ package com.hibiup.zio
 
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.FlatSpec
-import zio.{Exit, IO, Task, UIO, ZIO}
+import zio.{App, DefaultRuntime, IO, Task, UIO, ZIO}
 
 class Example_1_Effect extends FlatSpec with StrictLogging{
+    val runtime = new DefaultRuntime {}
+
     "Basic effective functions" should "" in {
         /**
-         * succeed 函数是一个pure（eager 函数），直接得到返回值。
+         * succeed 函数是一个pure（eager 函数），直接计算出参数值。
+         *
+         * ZIO 函数执行后的到一个 ZIO[_,_,_] 类型的返回值，称为 `effect`. 有两种方法拆包。
+         *
+         *   App：参考 HelloWorld
+         *   runtime: 通过 Runtime 来拆包
          */
-        ZIO.succeed(42)
+        val succ = ZIO.succeed(42)
+        runtime.unsafeRun(succ.map(v => {
+            logger.info(s"$v")
+            assert(v === 42)
+        }))
+
         // 同样适用其他衍生类型
-        Task.succeed[Int](42)  // Task[A] = ZIO[Any, Throwable, A]
+        val tSucc = Task.succeed[Int](41)  // Task[A] = ZIO[Any, Throwable, A]
+        runtime.unsafeRun(tSucc.map(v => assert(v === 41)))
 
         /**
          * 相对于 eager 函数，effect 则是 lazy 的。例如对于存在副作用的标准输入：
@@ -22,15 +35,23 @@ class Example_1_Effect extends FlatSpec with StrictLogging{
         /**
          *  effect 允许返回异常[Throwable, A]，如果保证不会出现异常，则适用 effectTotal 返回 [Nothing, A]
          */
-        lazy val bigList = (0 to 1000000).toList   // 注意用 lazy suspend side effect
+        lazy val bigList = (0 to 100).toList   // 注意用 lazy suspend side effect
         lazy val bigString = bigList.map(_.toString).mkString("\n")
         val a: UIO[String] = ZIO.effectTotal(bigString)
+        runtime.unsafeRun(a.map(s => logger.info(s"$s")))
 
         /**
-         * 失败函数的也类似
+         * 失败函数的也类似. mapError 可以改变错误类型（但是不能修改错误状态: zio.FiberFailure）
          */
-        ZIO.fail(new Exception("Uh oh!"))
-        ZIO.fail(56)
+        try runtime.unsafeRun(ZIO.fail(new Exception("Uh oh!")).mapError(t => println(t.getMessage)))
+        catch{
+            case t:zio.FiberFailure => logger.info(t.getMessage, t)
+        }
+
+        try runtime.unsafeRun(ZIO.fail(56))
+        catch {
+            case t:zio.FiberFailure => succeed
+        }
 
         /**
          * ZIO 可以从 Scala 基本类型中获得值
@@ -38,6 +59,7 @@ class Example_1_Effect extends FlatSpec with StrictLogging{
          * 注意到因为 Option 可能返回 None，这个值被视为某种"异常"，因此ZIO 的第二个参数位是 Unit，表示没有返回值的情况。
          */
         val zOption: ZIO[Any, Unit, Int] = ZIO.fromOption(Some(2))
+        runtime.unsafeRun(zOption.map(v => assert(v === 2)))
 
         /**
          * 对于 fromFuture. ZIO 提供缺省 ec。
@@ -47,6 +69,10 @@ class Example_1_Effect extends FlatSpec with StrictLogging{
         val zFuture: Task[Boolean] = ZIO.fromFuture { implicit ec =>
             future.map(_ => true)
         }
+        runtime.unsafeRun(zFuture.map(b => {
+            logger.info(s"$b")
+            assert(b)
+        }))
 
         // 以上等价于：
         val zFuture1: Task[Boolean] = ZIO.effect(Future.successful("Hello!")).flatMap(f => ZIO.fromFuture{ implicit ec =>
@@ -65,9 +91,12 @@ class Example_1_Effect extends FlatSpec with StrictLogging{
         val zFutureStrErr: ZIO[Any, String, Boolean] = zFuture.mapError(_ => "None value found")
 
         /**
-         * fromXXX 系列函数甚至可以作用于函数
+         * fromXXX 系列函数甚至可以作用于函数.
+         *
+         * 通过 provide 函数将参数传入
          */
-        val zFunc = ZIO.fromFunction((i: Int) => i * i)
+        val zFunc = ZIO.fromFunction((i: (Int, Int)) => i._1 * i._2)
+        runtime.unsafeRun(zFunc.provide((2,3)).map(v => logger.info(s"$v")))
 
         /**
          * Async
