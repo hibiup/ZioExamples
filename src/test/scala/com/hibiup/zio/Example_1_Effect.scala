@@ -41,7 +41,7 @@ class Example_1_Effect extends FlatSpec with StrictLogging{
         runtime.unsafeRun(a.map(s => logger.info(s"$s")))
 
         /**
-         * 失败函数的也类似. mapError 可以改变错误类型（但是不能修改错误状态: zio.FiberFailure）
+         * 失败函数的也类似. mapError 可以改变错误类型，但是不能修改错误状态: zio.FiberFailure
          */
         try runtime.unsafeRun(ZIO.fail(new Exception("Uh oh!")).mapError(t => println(t.getMessage)))
         catch{
@@ -51,6 +51,28 @@ class Example_1_Effect extends FlatSpec with StrictLogging{
         try runtime.unsafeRun(ZIO.fail(56))
         catch {
             case t:zio.FiberFailure => succeed
+        }
+
+        /**
+         *  但是可以通过 either 来封装错误，并改变错误状态:
+         *
+         *      ZIO[R, E, A] => ZIO[R, Nothing, Either[E, A]]
+         */
+        val zeither: UIO[Either[String, Int]] = IO.fail("Uh oh!").either
+        runtime.unsafeRun(zeither.map{
+            case Right(_) => fail()
+            case Left(v) =>
+                logger.info(s"$v")
+                assert(v === "Uh oh!")
+        })
+
+        /**
+         * 于 either 相反的运算是 absolve
+         */
+        val zabsolve: ZIO[Any, String, Nothing] = IO.succeed(Left("Absolve!")).absolve
+        try runtime.unsafeRun(zabsolve)
+        catch {
+            case t:zio.FiberFailure => logger.info(t.getMessage(), t)
         }
 
         /**
