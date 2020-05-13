@@ -1,9 +1,9 @@
-package com.hibiup.zio
+package com.hibiup.zio.examples
 
 import java.io.IOException
 
-import zio.{App, IO, ZIO}
-import zio.console._
+import zio.console.{Console, getStrLn, putStrLn}
+import zio.{App, ZIO}
 
 /**
  * 程序从 zio.App 中继承出
@@ -25,7 +25,7 @@ object HelloWorld extends App{
      *
      * 这些别名各自存在伴随对象，包含一些特定的函数。
      *
-     * 执行一个 ZIO 容器的方法是调用 fold 函数，函数存在两个参数，第一个处理异常句柄，第二个处理返回值。
+     * 和 Scala 的 Either 或 Option 的 fold 一样，ZIO通过 fold 来同时处理处理异常和正常发挥值。
      *
      * run 函数作为入口函数，它要求返回 Int 类型返回值（对应 ExitCode）, 不允许存在异常。
      *Example_1_Effect
@@ -39,7 +39,7 @@ object HelloWorld extends App{
      * 同时它们也是 Monad，也就意味着可以串联： `getStrLn flatMap putStrLn` 能够将标准输入直接打印到标准输出。
      */
     val myAppLogic: ZIO[Console, IOException, Unit] = for {
-        _    <- putStrLn("Hello! What is your name?")
+        _    <- putStrLn("Hello! What is your name?")   // 标准输入输出返回的执行容器是 Console
         name <- getStrLn
         _    <- putStrLn(s"Hello, ${name}, welcome to ZIO!")
     } yield ()

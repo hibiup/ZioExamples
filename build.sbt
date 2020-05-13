@@ -1,31 +1,64 @@
 
 // DEPENDENCIES
+val ver = new{
+    val logback = "1.2.3"
+    val scalaLogging = "3.9.2"
+    val scalaTest = "3.1.1"
+    val zio = "1.0.0-RC18-2"
+    val zioInteropCats = "2.0.0.0-RC13"
+    val doobie = "0.9.0"
+    val http4s = "0.21.4"
+    val config = "1.4.0"
+    val circe = "0.13.0"
+    val akka = "2.6.5"
+}
+
 lazy val testing = Seq(
-    "org.scalatest" %% "scalatest" % "3.0.8",
-    "com.storm-enroute" %% "scalameter" % "0.19",
-    "dev.zio" %% "zio-test" % "1.0.0-RC13"
+    "org.scalatest" %% "scalatest" % ver.scalaTest,
+    "dev.zio" %% "zio-test" % ver.zio
 )
 
-lazy val logging ={
-    val logbackV = "1.2.3"
-    val scalaLoggingV = "3.9.2"
-    Seq(
-        "ch.qos.logback" % "logback-classic" % logbackV,
-        "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingV
-    )
-}
+lazy val logging = Seq(
+    "ch.qos.logback" % "logback-classic" % ver.logback,
+    "com.typesafe.scala-logging" %% "scala-logging" % ver.scalaLogging
+)
 
-lazy val zio = {
-    val ZioVersion = "1.0.0-RC13"
-    Seq(
-        "dev.zio" %% "zio" % ZioVersion,
-        "dev.zio" %% "zio-streams" % ZioVersion
-    )
-}
+lazy val config = Seq(
+    "com.typesafe" % "config" % ver.config
+)
+
+lazy val zio = Seq(
+    "dev.zio" %% "zio" % ver.zio,
+    "dev.zio" %% "zio-streams" % ver.zio,
+    "dev.zio" %% "zio-interop-cats" % ver.zioInteropCats
+)
+
+lazy val jdbc = Seq(
+    "org.tpolecat" %% "doobie-core" % ver.doobie,
+    "org.tpolecat" %% "doobie-h2" % ver.doobie
+)
+
+lazy val http4s = Seq(
+    "org.http4s" %% "http4s-blaze-server" % ver.http4s,
+    "org.http4s" %% "http4s-circe" % ver.http4s,
+    "org.http4s" %% "http4s-dsl" % ver.http4s
+)
+
+lazy val akka = Seq(
+    "com.typesafe.akka" %% "akka-actor" % ver.akka,
+    "com.typesafe.akka" %% "akka-stream" % ver.akka
+)
+
+lazy val circe = Seq(
+    // Optional for auto-derivation of JSON codecs
+    "io.circe" %% "circe-generic" % ver.circe,
+    // Optional for string interpolation to JSON model
+    "io.circe" %% "circe-literal" % ver.circe
+)
 
 lazy val ZioExamples = project.in(file(".")).settings(
     name := "ZioExamples",
     version := "0.1",
-    scalaVersion := "2.13.1",
-    libraryDependencies ++= testing.map(_ % Test) ++ logging ++ zio
+    scalaVersion := "2.13.2",
+    libraryDependencies ++= testing.map(_ % Test) ++ logging ++ config ++ zio ++ jdbc ++ http4s ++ akka ++ circe
 )
