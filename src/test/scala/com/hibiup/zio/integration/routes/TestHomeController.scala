@@ -1,8 +1,9 @@
 package com.hibiup.zio.integration.routes
 
 import akka.actor.ActorSystem
+import cats.data.OptionT
 import com.hibiup.zio.integration.configuration.{AkkaActorSystem, Configuration}
-import com.hibiup.zio.integration.repositories.{Persistence, User, UserService}
+import com.hibiup.zio.integration.repositories.{HasTransactor, Persistence, User, UserService}
 import com.typesafe.scalalogging.StrictLogging
 import org.http4s._
 import org.scalatest.flatspec.AnyFlatSpec
@@ -11,6 +12,8 @@ import org.http4s.implicits._
 import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.interop.catz._
+import doobie.Transactor
+import Persistence.DSL._
 
 
 class TestHomeController extends AnyFlatSpec with StrictLogging{
@@ -22,19 +25,19 @@ class TestHomeController extends AnyFlatSpec with StrictLogging{
 
     implicit val sys = ActorSystem("test-actorSystem")
 
-    val layers = (Configuration.live ++  Blocking.live) >>>
-      Persistence.live(runtime.platform.executor.asEC) >>>
-      UserService.live(sys)
+    val transactorLayer = (Configuration.live ++  Blocking.live) >>> Persistence.live
 
     "Home controller get user" should "" in {
         val urlUser = Request[Task](Method.GET, uri"/user/100")
-        val notFound = HomeController(layers).route.run(urlUser)
 
-        val program = ZIO.runtime[Clock with HasActorSystem].map{ implicit rt =>
-            rt.unsafeRun(notFound.value).map(resp => assert(resp.status.code == 404))
-        }
+        val program = (for {
+            tnx <- transactor
+            notFound <- ZIO.runtime[HasTransactor] >>= {_ =>
+                HomeController(UserService.live(sys, tnx), sys).route.run(urlUser).value
+            }
+        } yield notFound).provideSomeLayer(transactorLayer)
 
-        runtime.unsafeRun(program.provideSomeLayer(Clock.live ++ AkkaActorSystem.live).fold(_ => (), println))
+        runtime.unsafeRun(program.fold(_ => (), println))
     }
 
     "Home controller create user" should "" in {
@@ -43,22 +46,20 @@ class TestHomeController extends AnyFlatSpec with StrictLogging{
         import io.circe.generic.auto._
         import org.http4s.circe.CirceEntityDecoder._
 
-        val program = ZIO.runtime[Clock with HasActorSystem] >>= { rt =>
-            val urlUser = Request[Task](Method.POST, uri"/user")
-              .withEntity{
-                  val userJson = User(None, Option("John")).asJson
-                  logger.debug(userJson.toString())
-                  userJson
-              }
+        val urlUser = Request[Task](Method.POST, uri"/user")
+          .withEntity{
+              val userJson = User(None, Option("John")).asJson
+              logger.debug(userJson.toString())
+              userJson
+          }
 
-            for {
-                created <- HomeController(layers).route.run(urlUser).value
-                userId <- ZIO.fromOption(created.map { t =>
-                    rt.unsafeRun(t.as[Int])
-                })
-            } yield userId
-        }
+        val program = (for{
+            tnx <- transactor
+            create <- HomeController(UserService.live(sys, tnx), sys).route.run(urlUser)/*.map{c =>
+                    c.as[Int]
+                }*/.value
+        } yield create).provideSomeLayer(transactorLayer)
 
-        runtime.unsafeRun(program.provideSomeLayer(Clock.live ++ AkkaActorSystem.live).fold(_ => (), println))
+        runtime.unsafeRun(program.fold(_ => (), println))
     }
 }

@@ -35,7 +35,8 @@ lazy val zio = Seq(
 
 lazy val jdbc = Seq(
     "org.tpolecat" %% "doobie-core" % ver.doobie,
-    "org.tpolecat" %% "doobie-h2" % ver.doobie
+    "org.tpolecat" %% "doobie-h2" % ver.doobie,
+    "org.tpolecat" %% "doobie-hikari" % ver.doobie
 )
 
 lazy val http4s = Seq(

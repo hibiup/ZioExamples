@@ -1,20 +1,25 @@
 package com.hibiup.zio.integration.repositories
 
-
-import akka.actor.ActorSystem
 import cats.effect.{Blocker, Resource}
 import com.hibiup.zio.integration.configuration.HasConfiguration
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import doobie.Transactor
-import doobie.h2.H2Transactor
+import doobie.hikari.HikariTransactor
+import doobie.util.ExecutionContexts
 import zio.blocking.Blocking
-import zio.{Managed, Reservation, Task, ZIO, ZLayer}
+import zio.{Managed, Reservation, Task, ZIO, ZLayer, ZManaged}
 import zio.interop.catz._
 
 import scala.concurrent.ExecutionContext
 
 object Persistence extends StrictLogging{
+    /**
+     * 定义一个用于管理连接池的线程池。
+     */
+    val fixedSizeConnectionPool: ZManaged[Any, Throwable, ExecutionContext] =
+        ExecutionContexts.fixedThreadPool[Task](5).toManagedZIO
+
     private def getTransactor(
                       conf: Config,
                       connectEC: ExecutionContext,
@@ -25,12 +30,13 @@ object Persistence extends StrictLogging{
          *
          * Transactor 内部维持了一个池，但是用于链接的 ec 和用于执行事务的 ec 也需要作为参数每次传入。
          */
-        val resource: Resource[Task, Transactor[Task]] = H2Transactor.newH2Transactor[Task](
-              conf.getString("url"),
-              conf.getString("user"),
-              conf.getString("password"),
-              connectEC,
-              Blocker.liftExecutionContext(transactEC)   // 在 Blocker 中运行该资源的分配，这个 Blocker 将使用传入的 EC
+        val resource: Resource[Task, Transactor[Task]] = HikariTransactor.newHikariTransactor[Task](
+            conf.getString("driver"),
+            conf.getString("url"),
+            conf.getString("user"),
+            conf.getString("password"),
+            connectEC,
+            Blocker.liftExecutionContext(transactEC)   // 在 Blocker 中运行该资源的分配，这个 Blocker 将使用传入的 EC
         )
 
         /**
@@ -70,14 +76,23 @@ object Persistence extends StrictLogging{
      * 而不是用 with 链接的两个。
      */
     import com.hibiup.zio.integration.configuration.Configuration.DSL._
-    def live(implicit connectEC: ExecutionContext): ZLayer[HasConfiguration with Blocking, Throwable, HasTransactor] = {
+    def live/*(implicit connectEC: ExecutionContext)*/: ZLayer[HasConfiguration with Blocking, Throwable, HasTransactor] = {
         ZLayer.fromManaged{
             for {
-                // 其实直接调用 ZIO.descriptor.map(_.executor.asEC) 来取得 ExecutionContext，之所以用 zio.blocking.blocking
-                // 是个因为这个过程本身可能也会用时较长。
-                blockingEC <- zio.blocking.blocking(
-                    ZIO.descriptor.map(_.executor.asEC)
-                ).toManaged_
+                connectEC <- fixedSizeConnectionPool
+                /**
+                 * 获得用于执行事务的线程池，它和管理连接的线程池可以不是同一个。
+                 *
+                 * 可以直接调用 ZIO.descriptor.map(_.executor.asEC) 来取得 ExecutionContext，之所以用 zio.blocking.blocking
+                 * 是个因为这个过程本身可能也会用时较长。
+                 * */
+                blockingEC <- zio.blocking.blocking {
+                    /**
+                     * Doobie 缺省提供了一个的用于执行的事务的 EC。
+                     */
+                    ZIO.descriptor.map(_ => doobie.util.ExecutionContexts.synchronous)
+                    //ZIO.descriptor.map(_.executor.asEC)   // 如果希望直接使用当前 Fiber 的 EC（不推荐）
+                }.toManaged_
                 // ZIO ==> ZManaged，必须将 ZIO 变成 ZManaged, 否则会形成 ZIO[ZManaged...]] 嵌套，导致 ZLayer.from...无所适从
                 tnx <- load.toManaged_
                   .flatMap((conf: Config) =>

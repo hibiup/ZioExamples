@@ -5,7 +5,10 @@ import com.typesafe.scalalogging.StrictLogging
 import zio.{Has, Managed, Task, ZIO, ZLayer}
 
 object AkkaActorSystem extends StrictLogging{
-    val live: ZLayer[Any, Throwable, Has[ActorSystem]] = ZLayer.fromManaged{
+    val live: ZLayer[Any, Throwable, HasActorSystem] = ZLayer.fromManaged{
+        /**
+         * 比较一下 Managed 在 Transactor 中的用法。
+         */
         Managed.make{
             Task.effect {
                 logger.info("ActorSystem acquisition")
