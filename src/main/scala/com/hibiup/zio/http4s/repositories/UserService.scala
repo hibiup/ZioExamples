@@ -1,4 +1,4 @@
-package com.hibiup.zio.integration.repositories
+package com.hibiup.zio.http4s.repositories
 
 import akka.actor.ActorSystem
 import com.typesafe.scalalogging.StrictLogging

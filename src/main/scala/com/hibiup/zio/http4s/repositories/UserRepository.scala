@@ -1,4 +1,4 @@
-package com.hibiup.zio.integration.repositories
+package com.hibiup.zio.http4s.repositories
 
 import com.typesafe.scalalogging.StrictLogging
 import doobie.free.connection.ConnectionIO

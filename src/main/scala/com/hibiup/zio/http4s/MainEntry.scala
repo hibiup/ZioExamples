@@ -1,9 +1,9 @@
-package com.hibiup.zio.integration
+package com.hibiup.zio.http4s
 
 import cats.effect.ExitCode
-import com.hibiup.zio.integration.configuration.{AkkaActorSystem, Configuration}
-import com.hibiup.zio.integration.repositories.{Persistence, UserService}
-import com.hibiup.zio.integration.routes.HomeController
+import com.hibiup.zio.http4s.configuration.{AkkaActorSystem, Configuration}
+import com.hibiup.zio.http4s.repositories.{Persistence, UserService}
+import com.hibiup.zio.http4s.routes.HomeController
 import com.typesafe.scalalogging.StrictLogging
 import org.http4s.server.Router
 import org.http4s.server.blaze.BlazeServerBuilder

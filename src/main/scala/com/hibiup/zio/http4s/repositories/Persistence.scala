@@ -1,7 +1,7 @@
-package com.hibiup.zio.integration.repositories
+package com.hibiup.zio.http4s.repositories
 
 import cats.effect.{Blocker, Resource}
-import com.hibiup.zio.integration.configuration.HasConfiguration
+import com.hibiup.zio.http4s.configuration.HasConfiguration
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import doobie.Transactor
@@ -75,7 +75,7 @@ object Persistence extends StrictLogging{
      * 如果不希望将某个 Layer，比如 Blocking 暴露给用户，可以使用 .provideSomeLayer 来设置，这样就只需要暴露出一个依赖 Layer，
      * 而不是用 with 链接的两个。
      */
-    import com.hibiup.zio.integration.configuration.Configuration.DSL._
+    import com.hibiup.zio.http4s.configuration.Configuration.DSL._
     def live/*(implicit connectEC: ExecutionContext)*/: ZLayer[HasConfiguration with Blocking, Throwable, HasTransactor] = {
         ZLayer.fromManaged{
             for {

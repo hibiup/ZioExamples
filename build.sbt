@@ -11,6 +11,7 @@ val ver = new{
     val config = "1.4.0"
     val circe = "0.13.0"
     val akka = "2.6.5"
+    val akkaHttp = "10.1.12"
 }
 
 lazy val testing = Seq(
@@ -47,7 +48,9 @@ lazy val http4s = Seq(
 
 lazy val akka = Seq(
     "com.typesafe.akka" %% "akka-actor" % ver.akka,
-    "com.typesafe.akka" %% "akka-stream" % ver.akka
+    "com.typesafe.akka" %% "akka-http" % ver.akkaHttp,
+    "com.typesafe.akka" %% "akka-stream" % ver.akka,
+    "de.heikoseeberger" %% "akka-http-circe" % "1.31.0"
 )
 
 lazy val circe = Seq(

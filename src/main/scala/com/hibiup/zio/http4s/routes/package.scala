@@ -1,4 +1,4 @@
-package com.hibiup.zio.integration
+package com.hibiup.zio.http4s
 
 import akka.actor.ActorSystem
 import zio.{Has, RIO}

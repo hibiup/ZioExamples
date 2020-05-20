@@ -1,7 +1,7 @@
-package com.hibiup.zio.integration.routes
+package com.hibiup.zio.http4s.routes
 
 import akka.actor.ActorSystem
-import com.hibiup.zio.integration.repositories.{HasUserService, User, UserId, UserService, UserServiceTask}
+import com.hibiup.zio.http4s.repositories.{HasUserService, User, UserId, UserService, UserServiceTask}
 import com.typesafe.scalalogging.StrictLogging
 import zio._
 import org.http4s.HttpRoutes
