@@ -27,7 +27,6 @@ object MainEntry extends zio.App with StrictLogging{
             handle <- actorSystem >>= {implicit actorSystem =>
                 implicit val mat: Materializer = Materializer(actorSystem)
                 Task.fromFuture{_ =>
-                  logger.info("Akka http is starting...")
                     Http().bindAndHandle(routes(actorSystem), "0.0.0.0", 9000)
                 }
             }
@@ -36,9 +35,9 @@ object MainEntry extends zio.App with StrictLogging{
             handle
         }
 
-        ecResource.use(ec =>
+        ecResource.use(implicit ec =>
             program.provideLayer(AkkaActorSystem.live ++
               ((Configuration.live ++ Blocking.live) >>> Persistence.live(ec)))
-        ).map(handle => handle.unbind()).fold(_ => 1, _ => 0)
+        ).map(handle => {handle.unbind()}).fold(_ => 1, _ => 0)
     }
 }
