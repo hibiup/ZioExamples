@@ -2,7 +2,7 @@ package com.hibiup.zio.http4s
 
 import cats.effect.ExitCode
 import com.hibiup.zio.http4s.configuration.{AkkaActorSystem, Configuration}
-import com.hibiup.zio.http4s.repositories.{Persistence, UserService}
+import com.hibiup.zio.http4s.repositories.{HasUserService, Persistence, UserService}
 import com.hibiup.zio.http4s.routes.HomeController
 import com.typesafe.scalalogging.StrictLogging
 import org.http4s.server.Router
@@ -34,7 +34,7 @@ object MainEntry extends zio.App with StrictLogging{
             server <- ZIO.runtime[Clock] >>= { implicit rt =>   // Supported by Clock
                 import org.http4s.implicits._
 
-                implicit val userService = UserService.live(sys, tnx)
+                implicit val userService: Layer[Throwable, HasUserService] = UserService.live(sys, tnx)
 
                 val httpApp = Router[Task] {
                     /**
@@ -43,7 +43,7 @@ object MainEntry extends zio.App with StrictLogging{
                      * 签名上标注它依赖的接口(ZLayer[Has[UserService.Service[Task], Throwable, Has[HomeController]])，
                      * 然后在获取它的时候注入依赖。
                      */
-                    "/" -> HomeController(UserService.live(sys, tnx), sys).route
+                    "/" -> HomeController(userService, sys).route
                 }.orNotFound
 
                 implicit val platformEC: ExecutionContext = rt.platform.executor.asEC

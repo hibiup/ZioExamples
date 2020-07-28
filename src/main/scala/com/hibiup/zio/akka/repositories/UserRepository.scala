@@ -1,33 +1,44 @@
 package com.hibiup.zio.akka.repositories
 
+import com.typesafe.scalalogging.StrictLogging
 import doobie.free.connection.ConnectionIO
 import zio.{Has, Layer, Task, ZIO, ZLayer}
 import doobie.implicits._
+import doobie.util.query.Query0
+import doobie.util.update.Update0
 
-object UserRepository {
-    trait Service[T[_]]{
-        def create(task:User):T[ConnectionIO[TaskId]]
+object UserRepository extends StrictLogging{
+    trait Service{
+        def select(id: UserId): Query0[User]
+        def insert(user: User): ConnectionIO[Int]
+        def delete(id: UserId): Update0
     }
 
-    object Service extends Service[Task] {
-        override def create(task:User): Task[ConnectionIO[TaskId]] = Task.effect {
-            task match {
-                case User(None, name) =>
-                    sql"""
-                          INSERT INTO User(name)
-                          VALUES (
-                              $name
-                          )
-                     """.update.withUniqueGeneratedKeys[Int]("id")
+    object Service extends Service{
+        def select(id: UserId): Query0[User] = {
+            logger.info("select user")
+            sql"""SELECT * FROM USERS WHERE id = ${id} """.query[User]
+        }
 
-                case _ => throw new RuntimeException("Invalid input")
-            }
+        def insert(user: User): ConnectionIO[Int] = {
+            logger.info("insert user")
+            sql"""INSERT INTO USERS (name) VALUES ( ${user.name.get})""".update.withUniqueGeneratedKeys[Int]("id")
+        }
+
+        def delete(id: UserId): Update0 = {
+            logger.info("delete user")
+            sql"""DELETE FROM USERS WHERE id = ${id}""".update
         }
     }
 
-    val live: Layer[Throwable, HasTaskRepository] = ZLayer.succeed(Service)
+    val live: Layer[Throwable, Has[Service]] = ZLayer.succeed(Service)
 
     object DSL {
-        def create(user:User):ZIO[HasTaskRepository, Throwable, ConnectionIO[TaskId]] = ZIO.accessM(_.get.create(user))
+        def select(id: UserId): ZIO[HasUserRepository,Throwable, Task[Query0[User]]] =
+            ZIO.access(f => Task.effect(f.get.select(id)))
+        def insert(user: User): ZIO[HasUserRepository,Throwable, Task[ConnectionIO[Int] ]] =
+            ZIO.access(f => Task.effect(f.get.insert(user)))
+        def delete(id: UserId): ZIO[HasUserRepository,Throwable, Task[Update0]] =
+            ZIO.access(f => Task.effect(f.get.delete(id)))
     }
 }

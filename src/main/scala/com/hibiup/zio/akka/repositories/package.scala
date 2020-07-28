@@ -6,9 +6,8 @@ import zio.{Has, Task}
 import doobie.Transactor
 
 package object repositories {
-    type TaskId = Int
     type HasTransactor = Has[Transactor[Task]]
-    type HasTaskRepository = Has[UserRepository.Service[Task]]
+    type HasUserRepository = Has[UserRepository.Service]
 
     type UserId = Int
     sealed trait Entity{
@@ -16,4 +15,9 @@ package object repositories {
     }
 
     final case class User(id:Option[UserId], name:Option[String]) extends Entity
+
+    sealed trait RepoError
+    final case class UserNotFound(id:UserId) extends Exception with RepoError {
+        val message = s"User id $id has not been found"
+    }
 }

@@ -29,8 +29,7 @@ object UserService extends StrictLogging{
                      * 相比于直接使用 UserRepository，通过 ZLayer（DSL）取得的好处是解藕两个模块之间的依赖。ZLayer 定义的是
                      * 接口信息，然后通过 access 方法来查询实现，而 provideLayer 负责注入实现。要注意区别这两者的生命周期。
                      * */
-                    u <- select(id)
-                      .provideLayer(UserRepository.live) >>= { user =>
+                    u <- select(id).provideLayer(UserRepository.live) >>= { user =>
                         user.flatMap(_.option
                           .transact(tnx)
                           .foldM(
@@ -94,6 +93,8 @@ object UserService extends StrictLogging{
         def create(user:User): ZIO[HasUserService, Throwable, Int] =
             ZIO.accessM(f => f.get.create(user))
         def find(id:UserId): ZIO[HasUserService, Throwable, User] =
-            ZIO.accessM(_.get.find(id))
+            ZIO.accessM(f => f.get.find(id))
+        def remove(id: UserId): ZIO[HasUserService, Throwable, Boolean] =
+            ZIO.accessM(f => f.get.remove(id))
     }
 }
