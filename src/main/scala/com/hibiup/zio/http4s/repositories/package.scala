@@ -2,6 +2,7 @@ package com.hibiup.zio.http4s
 
 import zio.{Has, Task}
 import doobie.Transactor
+import doobie.hikari.HikariTransactor
 
 package object repositories {
     type UserId = Int
@@ -10,7 +11,7 @@ package object repositories {
     type HasUserService = Has[UserServiceTask]
     type HasUserRepository = Has[UserRepository.Service]
 
-    type HasTransactor = Has[Transactor[Task]]
+    type HasTransactor = Has[HikariTransactor[Task]]// Has[Transactor[Task]]
 
     sealed trait Entity{
         val id: Option[UserId]

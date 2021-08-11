@@ -5,11 +5,10 @@ import com.hibiup.zio.http4s.configuration.HasConfiguration
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import com.zaxxer.hikari.HikariConfig
-import doobie.Transactor
 import doobie.hikari.HikariTransactor
 import doobie.util.ExecutionContexts
 import zio.blocking.Blocking
-import zio.{Managed, RManaged, Reservation, Task, ZIO, ZLayer, ZManaged}
+import zio.{Task, ZIO, ZLayer, ZManaged}
 import zio.interop.catz._
 
 import scala.concurrent.ExecutionContext
@@ -25,19 +24,59 @@ object Persistence extends StrictLogging{
     private def getTransactor(
                                conf: Config,
                                connectEC: ExecutionContext,
-                               transactEC: ExecutionContext): RManaged[Blocking, Transactor[Task]] =
-        ZIO.runtime[Blocking].toManaged_.flatMap { implicit rt =>
+                               transactEC: ExecutionContext): ZManaged[Any, Throwable, HikariTransactor[Task]] =
+        //ZIO.runtime[Blocking].toManaged_.flatMap { implicit rt =>
+        {
             val config = new HikariConfig()
             config.setJdbcUrl(conf.getString("url"))
             config.setUsername(conf.getString("user"))
             config.setPassword(conf.getString("password"))
             //config.setSchema(conf.getString("")))
 
-            HikariTransactor.fromHikariConfig[Task](
+            /**
+             * Transactor.fromConfig 返回 获取资源的句柄和 和 release 句柄，在这里风别是 HikariTransactor[TasK] 和 Task[Unit]
+             */
+            val resource: Resource[Task, HikariTransactor[Task]] = HikariTransactor.fromHikariConfig[Task](
                 config,
                 connectEC,
                 Blocker.liftExecutionContext(transactEC)
-            ).toManaged
+            )
+
+            /*val reservation: ZIO[Any, Throwable, Reservation[Any, Nothing, HikariTransactor[Task]]] = resource.allocated.map{
+                // 转换： Cats.Resource ==> zio.Reservation
+                case (transactor, cleanupM) => {
+                    logger.debug("Reservation")
+                    /**
+                     * Reservation 接受两个ZIO类型的参数，一个是资源的获取，一个是资源的销毁。Reservation 并不指定资源何时被使用。
+                     */
+                    Reservation(
+                        {
+                            logger.debug("Reservation acquisition")
+                            ZIO.succeed(transactor)
+                        },
+                        _ => {
+                            logger.debug("Reservation revoke")
+                            cleanupM.orDie
+                        }
+                    )
+                }
+            }.uninterruptible*/
+
+            // Put Reservation into Managed
+            //Managed(reservation)
+
+            // 转换： Cats.Resource ==> zio.Reservation
+            ZManaged.fromEffect(resource.allocated.map{
+                case (transactor: HikariTransactor[Task], releaseM: Task[Unit]) =>
+                    ZManaged.make{
+                        logger.debug("Reservation acquisition")
+                        ZIO.succeed(transactor)
+                    }{ _ =>
+                        logger.debug("Reservation revoke")
+                        releaseM.orDie
+                    }
+                }.uninterruptible
+            ).flatten
         }
 
     /**
@@ -75,7 +114,7 @@ object Persistence extends StrictLogging{
     }
 
     object DSL {
-        def transactor: ZIO[HasTransactor, Throwable, Transactor[Task]] = {
+        def transactor: ZIO[HasTransactor, Throwable, HikariTransactor[Task]] = {
             ZIO.access(_.get)
         }
     }
