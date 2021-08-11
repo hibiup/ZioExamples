@@ -1,6 +1,6 @@
 package com.hibiup.zio.http4s
 
-import cats.effect.ExitCode
+import zio.ExitCode
 import com.hibiup.zio.http4s.configuration.{AkkaActorSystem, Configuration}
 import com.hibiup.zio.http4s.repositories.{HasUserService, Persistence, UserService}
 import com.hibiup.zio.http4s.routes.HomeController
@@ -18,7 +18,7 @@ object MainEntry extends zio.App with StrictLogging{
     import AkkaActorSystem.DSL._
     import Persistence.DSL._
 
-    override def run(args: List[String]): ZIO[ZEnv, Nothing, Int] = {
+    override def run(args: List[String]): ZIO[ZEnv, Nothing, ExitCode] = {
         for{
             /**
              * UserService.live 使用到 actorSystem 和 Transactor，但是不能以 ZLayer 的形式合并在一起。否则在每次请求服务的
@@ -53,7 +53,7 @@ object MainEntry extends zio.App with StrictLogging{
                   .enableHttp2(true)
                   .withHttpApp(httpApp)
                   .serve
-                  .compile[Task, Task, ExitCode]
+                  .compile[Task, Task, cats.effect.ExitCode]
                   .drain
             }
         } yield server
@@ -71,5 +71,5 @@ object MainEntry extends zio.App with StrictLogging{
          */
         Clock.live ++ AkkaActorSystem.live ++
           ((Configuration.live ++ Blocking.live) >>> Persistence.live)
-    }.fold(_ => 1, _ => 0)
+    }.exitCode  //.fold(_ => 1, _ => 0)
 }

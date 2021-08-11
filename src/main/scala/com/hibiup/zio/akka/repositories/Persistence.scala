@@ -5,8 +5,10 @@ import com.hibiup.zio.akka.config.HasConfiguration
 import zio.{Managed, _}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import com.zaxxer.hikari.HikariConfig
 import doobie.Transactor
 import doobie.h2.H2Transactor
+import doobie.hikari.HikariTransactor
 import zio.blocking.Blocking
 import zio.interop.catz._
 
@@ -14,6 +16,24 @@ import scala.concurrent.ExecutionContext
 
 object Persistence extends StrictLogging{
     private def getTransactor(
+                               conf: Config,
+                               connectEC: ExecutionContext,
+                               transactEC: ExecutionContext): RManaged[Blocking, Transactor[Task]] =
+        ZIO.runtime[Blocking].toManaged_.flatMap { implicit rt =>
+            val config = new HikariConfig()
+            config.setJdbcUrl(conf.getString("url"))
+            config.setUsername(conf.getString("user"))
+            config.setPassword(conf.getString("password"))
+            //config.setSchema(conf.getString("")))
+
+            HikariTransactor.fromHikariConfig[Task](
+                config,
+                connectEC,
+                Blocker.liftExecutionContext(transactEC)
+            ).toManaged
+        }
+
+    /*private def getTransactor(
                                conf: Config,
                                connectEC: ExecutionContext,
                                transactEC: ExecutionContext
@@ -41,7 +61,7 @@ object Persistence extends StrictLogging{
         }.uninterruptible
 
         Managed(reservation)
-    }
+    }*/
 
     import com.hibiup.zio.akka.config.Configuration.DSL._
     def live(implicit connectEC: ExecutionContext): ZLayer[HasConfiguration with Blocking, Throwable, HasTransactor] =

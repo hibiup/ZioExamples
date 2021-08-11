@@ -1,9 +1,8 @@
 package com.hibiup.zio.examples
 
 import java.io.IOException
-
 import zio.console.{Console, getStrLn, putStrLn}
-import zio.{App, ZIO}
+import zio.{App, ExitCode, ZIO}
 
 /**
  * 程序从 zio.App 中继承出
@@ -31,7 +30,7 @@ object HelloWorld extends App{
      *Example_1_Effect
      * 这个例子的 run 在调用 myAppLogic 后得到一个 ZIO 返回值传递给 fold，无论什么异常，最终都返回 1，否则返回 0。
      */
-    def run(args: List[String]): ZIO[Console, Nothing, Int] = myAppLogic.fold(_ => 1, _ => 0)
+    def run(args: List[String]): ZIO[Console, Nothing, ExitCode] = myAppLogic.exitCode  //.fold(_ => 1, _ => 0)
 
     /**
      * putStrLn/putStr 是 console 提供给的标准打印函数。getStrLn 是标准输入设备的读取函数。

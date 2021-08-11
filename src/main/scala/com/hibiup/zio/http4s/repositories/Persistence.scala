@@ -4,11 +4,12 @@ import cats.effect.{Blocker, Resource}
 import com.hibiup.zio.http4s.configuration.HasConfiguration
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import com.zaxxer.hikari.HikariConfig
 import doobie.Transactor
 import doobie.hikari.HikariTransactor
 import doobie.util.ExecutionContexts
 import zio.blocking.Blocking
-import zio.{Managed, Reservation, Task, ZIO, ZLayer, ZManaged}
+import zio.{Managed, RManaged, Reservation, Task, ZIO, ZLayer, ZManaged}
 import zio.interop.catz._
 
 import scala.concurrent.ExecutionContext
@@ -20,53 +21,24 @@ object Persistence extends StrictLogging{
     val fixedSizeConnectionPool: ZManaged[Any, Throwable, ExecutionContext] =
         ExecutionContexts.fixedThreadPool[Task](5).toManagedZIO
 
+
     private def getTransactor(
-                      conf: Config,
-                      connectEC: ExecutionContext,
-                      transactEC: ExecutionContext
-                    ): Managed[Throwable, Transactor[Task]] = {
-        /**
-         * newH2Transactor 返回包含有 Transactor 的 (Cats.effect.) Resource.
-         *
-         * Transactor 内部维持了一个池，但是用于链接的 ec 和用于执行事务的 ec 也需要作为参数每次传入。
-         */
-        val resource: Resource[Task, Transactor[Task]] = HikariTransactor.newHikariTransactor[Task](
-            conf.getString("driver"),
-            conf.getString("url"),
-            conf.getString("user"),
-            conf.getString("password"),
-            connectEC,
-            Blocker.liftExecutionContext(transactEC)   // 在 Blocker 中运行该资源的分配，这个 Blocker 将使用传入的 EC
-        )
+                               conf: Config,
+                               connectEC: ExecutionContext,
+                               transactEC: ExecutionContext): RManaged[Blocking, Transactor[Task]] =
+        ZIO.runtime[Blocking].toManaged_.flatMap { implicit rt =>
+            val config = new HikariConfig()
+            config.setJdbcUrl(conf.getString("url"))
+            config.setUsername(conf.getString("user"))
+            config.setPassword(conf.getString("password"))
+            //config.setSchema(conf.getString("")))
 
-        /**
-         * resource.allocated 返回一对 Tuple，第一个元素是分配出的资源；第二个元素是释放资源的方法.
-         *
-         * 通过 map 映射成 ZIO 的 Reservation 以便传递给 ZIO 的 Managed。
-         */
-        val reservation: ZIO[Any, Throwable, Reservation[Any, Nothing, Transactor[Task]]] = resource.allocated.map{
-            // 转换： Cats.Resource ==> zio.Reservation
-            case (transactor, cleanupM) => {
-                logger.debug("Reservation")
-                /**
-                 * Reservation 接受两个ZIO类型的参数，一个是资源的获取，一个是资源的销毁。Reservation 并不指定资源何时被使用。
-                 */
-                Reservation(
-                    {
-                        logger.debug("Reservation acquisition")
-                        ZIO.succeed(transactor)
-                    },
-                    _ => {
-                        logger.debug("Reservation revoke")
-                        cleanupM.orDie
-                    }
-                )
-            }
-        }.uninterruptible
-
-        // Put Reservation into Managed
-        Managed(reservation)
-    }
+            HikariTransactor.fromHikariConfig[Task](
+                config,
+                connectEC,
+                Blocker.liftExecutionContext(transactEC)
+            ).toManaged
+        }
 
     /**
      * 从环境中取得 Config 用于构建 Transactor 然后它 暴露成 ZLayer

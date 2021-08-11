@@ -1,6 +1,6 @@
 package com.hibiup.zio.examples
 
-import zio.{Task, ZIO, App}
+import zio.{App, ExitCode, Task, ZIO}
 
 class HowToExample1 extends App{
     final case class UserProfile(id:Long, name:String)
@@ -52,7 +52,7 @@ class HowToExample1 extends App{
 
     object DatabaseLive extends DatabaseLive
 
-    override def run(args: List[String]): ZIO[zio.ZEnv, Nothing, Int] = {
+    override def run(args: List[String]): ZIO[zio.ZEnv, Nothing, ExitCode] = {
         import Database.DSL._
         val lookedupProfile: ZIO[Database, Throwable, UserProfile] =
             for {
@@ -60,6 +60,6 @@ class HowToExample1 extends App{
                 _ <- update(10, profile)
             } yield profile
 
-        lookedupProfile.provide(DatabaseLive).fold(_ => 1, _ => 0)
+        lookedupProfile.provide(DatabaseLive).exitCode  //.fold(_ => 1, _ => 0)
     }
 }

@@ -6,7 +6,7 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.server.Route
 import akka.stream.Materializer
 import cats.effect.Resource
-import zio.{Task, ZEnv, ZIO}
+import zio.{ExitCode, Task, ZEnv, ZIO}
 import com.hibiup.zio.akka.config.{AkkaActorSystem, Configuration, HasActorSystem}
 import com.hibiup.zio.akka.repositories.{HasTransactor, Persistence}
 import com.hibiup.zio.akka.routes.{HasHomeController, HomeController}
@@ -25,7 +25,7 @@ object MainEntry extends zio.App with StrictLogging{
 
     implicit val ecResource: Resource[Task, ExecutionContext] = ExecutionContexts.fixedThreadPool[Task](5)
 
-    override def run(args: List[String]): ZIO[ZEnv, Nothing, Int] = {
+    override def run(args: List[String]): ZIO[ZEnv, Nothing, ExitCode] = {
         val program:ZIO[HasActorSystem with HasTransactor with HasHomeController, Throwable, ServerBinding] = for {
             tnx <- transactor   // Supports HasTransactor (Persistent)
             sys <- actorSystem
@@ -45,6 +45,6 @@ object MainEntry extends zio.App with StrictLogging{
             program.provideLayer(AkkaActorSystem.live ++
               ((Configuration.live ++ Blocking.live) >>> Persistence.live(ec) ++ HomeController.live)
             )
-        ).map(handle => {handle.unbind()}).fold(_ => 1, _ => 0)
+        ).map(handle => {handle.unbind()}).exitCode  //.fold(_ => 1, _ => 0)
     }
 }

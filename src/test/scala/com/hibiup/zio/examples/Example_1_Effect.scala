@@ -95,7 +95,7 @@ class Example_1_Effect extends AnyFlatSpec with StrictLogging{
          *
          * 注意到因为 Option 可能返回 None，这个值被视为某种"异常"，因此ZIO 的第二个参数位是 Unit，表示没有返回值的情况。
          */
-        val zOption: ZIO[Any, Unit, Int] = ZIO.fromOption(Some(2))
+        val zOption: IO[Option[Nothing], Int] = ZIO.fromOption(Some(2))
         runtime.unsafeRun(zOption.map(v => assert(v === 2)))
 
         /**
