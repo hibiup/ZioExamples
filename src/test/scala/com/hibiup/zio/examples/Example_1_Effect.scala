@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.Assertion
 import zio._
+import zio.stream.ZStream
 
 /**
  * ZIO 缺省的内部容器：
@@ -164,5 +165,109 @@ class Example_1_Effect extends AnyFlatSpec with StrictLogging{
              */
             effectBlockingCancelable{obj.wait()}{UIO.effectTotal(obj.notify())}
         }
+    }
+
+
+    "Effect Async" should "" in {
+        // Java Interface
+        trait JavaInterface {
+            def onEvent1(): Task[Unit]
+
+            def onEvent2(msg: String): Task[Unit]
+
+            def onError(t: Throwable): Task[Unit]
+        }
+
+        class Server() {
+            var controlEvents: JavaInterface = _
+
+            def setControlEvent(controlEvents: JavaInterface) = {
+                this.controlEvents = controlEvents
+            }
+        }
+
+        // ADT
+        sealed trait Event
+        final case class OnEvent1(run: () => Unit) extends Event
+        final case class OnEvent2(run: String => Unit) extends Event
+        final case class OnError(run: Throwable => Unit) extends Event
+
+        // ZIO
+        def setCallback(server: Server): Task[Unit] = Task {
+            server.setControlEvent(new JavaInterface {
+                // Effect async
+                override def onEvent1(): Task[Unit] = /*runtime.unsafeRun*/ Task.effectAsync[Unit] { register =>
+                    register {
+                        ZIO.succeed(OnEvent1(() => {
+                            println("Event 1")
+                        }).run())
+                    }
+                }
+
+                override def onEvent2(msg: String): Task[Unit] = /*runtime.unsafeRun*/ Task.effectAsync[Unit] { register =>
+                    register {
+                        ZIO.succeed(OnEvent2(_msg => println(_msg)).run(msg))
+                    }
+                }
+
+                override def onError(t: Throwable): Task[Unit] = /*runtime.unsafeRun*/ Task.effectAsync[Unit] { register =>
+                    register {
+                        ZIO.succeed(OnError(_t => _t.printStackTrace()).run(t))
+                    }
+                }
+            })
+        }
+
+        runtime.unsafeRun(
+            (for {
+                server <- Task(new Server)
+                _ <- setCallback(server)
+                _ <- server.controlEvents.onEvent1()
+                _ <- server.controlEvents.onEvent2("Event 2")
+            } yield server).map { s =>
+                ()
+                //s.controlEvents.onEvent1()
+                //s.controlEvents.onEvent2("Event 2")
+            }
+        )
+
+
+        // Death lock
+        /*def setCallback1(server:Server):Task[Unit] = Task.effectAsync[Unit] { register: (ZIO[Any, Throwable, Unit] => Unit) =>
+            server.setControlEvent( new JavaInterface {
+                    // Effect async
+                    override def onEvent1(): Task[Unit] = Task(
+                        register {
+                            ZIO.succeed(OnEvent1(() => ()).run)
+                        }
+                    )
+
+
+                    override def onEvent2(msg: String): Task[Unit] = Task(
+                        register {
+                            ZIO.succeed(OnEvent2(_msg => println(_msg)).run(msg))
+                        }
+                    )
+
+                    override def onError(t: Throwable): Task[Unit] = Task(
+                        register {
+                            ZIO.succeed(OnError(_t => _t.printStackTrace()).run(t))
+                        }
+                    )
+                })
+            }
+
+
+        runtime.unsafeRun(
+            (for{
+                server <- Task(new Server)
+                _ <- setCallback1(server)
+                _ <- server.controlEvents.onEvent2("Event 2")
+            } yield server).map( s =>
+                () //s.controlEvents.onEvent2("Event 2")
+            )
+        )*/
+
+        //runtime.unsafeRun(effect)
     }
 }
